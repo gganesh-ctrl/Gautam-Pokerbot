@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pokerlab arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500..800;1,6..96,500..700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --room: #0f241c;
+  --room-2: #15302a;
+  --felt: #1d5c44;
+  --felt-hi: #2a7558;
+  --line: rgba(244, 238, 221, 0.22);
+  --rail: #4a2c1d;
+  --rail-hi: #6e4430;
+  --stock: #f4eedd;
+  --stock-2: #e6dec7;
+  --ink: #1d1a16;
+  --muted: #a9c2b5;
+  --red-suit: #b3261e;
+  --good: #8fd6a8;
+  --bad: #f08a7e;
+  --focus: #e3b341;
+  --display: "Bodoni Moda", "Bodoni 72", Didot, "Times New Roman", serif;
+  --ui: "Archivo", "Avenir Next Condensed", "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--room); }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(ellipse 120% 900px at 50% 0%, var(--room-2), var(--room)) no-repeat var(--room);
+  color: var(--stock);
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  min-height: 100vh;
+}
+button, input, select { font: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 20px 20px 60px; }
+
+/* header */
+header.top { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 14px; }
+header.top h1 { font-family: var(--display); font-weight: 700; font-style: italic; font-size: 40px; line-height: 1; margin: 0; letter-spacing: -0.5px; }
+header.top p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+/* main grid */
+.stage { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+/* rack */
+.rack { background: linear-gradient(var(--rail-hi), var(--rail)); border-radius: 14px; padding: 14px; box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 10px 30px rgba(0,0,0,.35); }
+.rack h2, .panel h2 { font-family: var(--display); font-weight: 600; font-size: 22px; margin: 0 0 4px; }
+.rack .hint { color: #d9c7b4; font-size: 13px; margin: 0 0 12px; }
+.rack-list { display: flex; flex-direction: column; gap: 8px; max-height: 560px; overflow-y: auto; padding-right: 2px; }
+.bot { display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; background: var(--stock); color: var(--ink); border-radius: 7px; padding: 8px 10px; cursor: grab; box-shadow: 0 1px 0 rgba(0,0,0,.25), 0 2px 6px rgba(0,0,0,.25); border: 1px solid #d8cfb5; }
+.bot:active { cursor: grabbing; }
+.bot.broken { opacity: .75; }
+.bot .idx { font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1; text-align: center; color: var(--ink); }
+.bot.uploaded .idx { color: var(--red-suit); }
+.bot .nm { font-weight: 650; font-size: 15px; overflow-wrap: anywhere; }
+.bot .ds { font-size: 12.5px; color: #5a5348; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bot .ds.err { color: var(--red-suit); }
+.bot .acts { display: flex; flex-direction: column; gap: 4px; }
+.mini { background: none; border: 1px solid #b9ae92; color: var(--ink); border-radius: 5px; padding: 1px 7px; font-size: 12px; cursor: pointer; }
+.mini:hover { background: var(--stock-2); }
+.group-label { color: #e7d6c3; font-size: 13px; margin: 10px 2px 2px; }
+.drop { margin-top: 12px; border: 2px dashed rgba(244,238,221,.45); border-radius: 10px; padding: 14px; text-align: center; color: #eadbc8; font-size: 13.5px; }
+.drop.over { border-color: var(--focus); background: rgba(227,179,65,.12); }
+.drop label { text-decoration: underline; cursor: pointer; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.toast { margin-top: 8px; font-size: 13px; min-height: 1.2em; }
+.toast.err { color: #ffc2b8; }
+
+/* table */
+.table-area { display: flex; flex-direction: column; gap: 16px; }
+.table { position: relative; width: 100%; aspect-ratio: 1.9 / 1; min-height: 300px; margin-top: 26px; }
+.rail { position: absolute; inset: 7% 9%; border-radius: 50%; background: linear-gradient(var(--rail-hi), var(--rail)); box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.15); }
+.felt { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(ellipse at 50% 40%, var(--felt-hi), var(--felt) 65%, #164a36); box-shadow: inset 0 0 40px rgba(0,0,0,.45); }
+.felt::after { content: ""; position: absolute; inset: 16%; border-radius: 50%; border: 1.5px solid var(--line); }
+.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; width: 46%; }
+.center .big { font-family: var(--display); font-size: clamp(18px, 2.4vw, 28px); font-style: italic; }
+.center .small { color: var(--muted); font-size: 13.5px; }
+.seat { position: absolute; transform: translate(-50%, -50%); width: 112px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.seat .slot { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; border: 2px dashed rgba(244,238,221,.45); color: var(--muted); font-size: 12px; text-align: center; line-height: 1.15; background: rgba(0,0,0,.18); transition: transform .12s ease; }
+.seat.over .slot { border-color: var(--focus); transform: scale(1.06); }
+.seat .label { font-size: 13px; font-weight: 600; text-align: center; max-width: 112px; overflow-wrap: anywhere; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.seat .label .x { margin-left: 4px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; }
+.seat .label .x:hover { color: var(--stock); }
+
+/* casino chip */
+.chip { --c: #d23a3a; width: 70px; height: 70px; border-radius: 50%; position: relative; cursor: grab;
+  background: repeating-conic-gradient(var(--c) 0deg 22.5deg, #f6f1e4 22.5deg 30deg, var(--c) 30deg 45deg);
+  box-shadow: 0 3px 0 rgba(0,0,0,.35), 0 6px 14px rgba(0,0,0,.35); display: grid; place-items: center; }
+.chip::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 2px rgba(255,255,255,.55); }
+.chip span { position: relative; font-family: var(--display); font-weight: 800; font-size: 26px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.45); }
+.chip.light span { color: var(--ink); text-shadow: none; }
+.chip.sm { width: 22px; height: 22px; box-shadow: 0 1px 0 rgba(0,0,0,.35); cursor: default; }
+.chip.sm::before { inset: 4px; box-shadow: none; }
+.chip.dropped { animation: drop .28s ease-out; }
+@keyframes drop { from { transform: translateY(-14px) scale(1.08); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .chip.dropped { animation: none; } .seat .slot { transition: none; } }
+
+/* controls under table */
+.tray { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; background: rgba(0,0,0,.22); border: 1px solid rgba(244,238,221,.12); border-radius: 12px; padding: 14px 16px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.field select, .field input[type=number] { background: var(--stock); color: var(--ink); border: 1px solid #c9bfa3; border-radius: 6px; padding: 5px 8px; min-width: 110px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--stock); padding-bottom: 6px; }
+.check input { width: 17px; height: 17px; accent-color: var(--focus); }
+.spacer { flex: 1; }
+.btn { border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid rgba(244,238,221,.4); background: transparent; color: var(--stock); font-weight: 600; }
+.btn:hover { background: rgba(244,238,221,.08); }
+.btn.primary { background: var(--focus); color: #241a05; border-color: var(--focus); font-size: 16px; padding: 10px 22px; }
+.btn.primary:hover { background: #ecc35c; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* progress */
+.progress { height: 6px; background: rgba(244,238,221,.12); border-radius: 3px; overflow: hidden; }
+.progress > div { height: 100%; width: 0; background: var(--focus); transition: width .3s; }
+.status { font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.status.err { color: #ffc2b8; }
+pre.detail { white-space: pre-wrap; font-size: 12px; background: rgba(0,0,0,.3); padding: 10px; border-radius: 8px; color: #f3d6cf; max-height: 220px; overflow: auto; }
+
+/* panels */
+.panels { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 24px; margin-top: 30px; }
+@media (max-width: 1000px) { .panels { grid-template-columns: 1fr; } }
+.panel { background: rgba(0,0,0,.2); border: 1px solid rgba(244,238,221,.1); border-radius: 14px; padding: 16px 18px; min-width: 0; }
+.panel .sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+table.board { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.board th { text-align: right; font-weight: 500; color: var(--muted); font-size: 12.5px; padding: 4px 6px; border-bottom: 1px solid rgba(244,238,221,.18); }
+table.board th:nth-child(-n+2) { text-align: left; }
+table.board td { padding: 7px 6px; text-align: right; border-bottom: 1px solid rgba(244,238,221,.07); white-space: nowrap; }
+table.board td.who { text-align: left; white-space: normal; }
+table.board td.who div { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+table.board td.rank { text-align: left; color: var(--muted); width: 22px; }
+.pos { color: var(--good); } .neg { color: var(--bad); }
+.ci { color: var(--muted); font-size: 12.5px; }
+.warn { color: #ffd07a; }
+.empty { color: var(--muted); font-size: 14px; padding: 18px 0; }
+svg.chart { width: 100%; height: auto; display: block; }
+svg.chart text { fill: var(--muted); font-size: 11px; font-family: var(--ui); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; margin-top: 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* replay */
+.replay { margin-top: 24px; }
+.replay-grid { display: grid; grid-template-columns: 220px 1fr; gap: 18px; }
+@media (max-width: 800px) { .replay-grid { grid-template-columns: 1fr; } }
+.hand-list { display: flex; flex-direction: column; gap: 6px; }
+.hand-list button { text-align: left; background: rgba(244,238,221,.06); border: 1px solid rgba(244,238,221,.12); color: var(--stock); border-radius: 8px; padding: 7px 10px; cursor: pointer; font-size: 13.5px; }
+.hand-list button.on { border-color: var(--focus); background: rgba(227,179,65,.12); }
+.hand-list button small { color: var(--muted); display: block; }
+.rtable { position: relative; width: 100%; aspect-ratio: 2.1 / 1; min-height: 260px; }
+.rtable .rail { inset: 10% 8%; }
+.rseat { position: absolute; transform: translate(-50%, -50%); width: 120px; text-align: center; font-size: 12.5px; }
+.rseat .nm { font-weight: 650; display: flex; align-items: center; justify-content: center; gap: 5px; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.rseat .stk { color: var(--muted); }
+.rseat.folded { opacity: .38; }
+.rseat .act { display: inline-block; margin-top: 2px; padding: 1px 7px; border-radius: 10px; background: var(--stock); color: var(--ink); font-weight: 600; font-size: 12px; }
+.rseat .act.hot { background: var(--focus); }
+.rseat .won { font-weight: 700; }
+.cards { display: inline-flex; gap: 3px; }
+.card { width: 28px; height: 38px; border-radius: 4px; background: #fffdf6; color: var(--ink); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,.45); font-family: var(--display); font-weight: 800; font-size: 15px; }
+.card i { font-style: normal; font-size: 13px; font-family: var(--ui); }
+.card.r { color: var(--red-suit); }
+.card.lg { width: 40px; height: 54px; font-size: 20px; }
+.card.lg i { font-size: 17px; }
+.card.ph { background: rgba(0,0,0,.18); box-shadow: inset 0 0 0 1.5px rgba(244,238,221,.2); }
+.rcenter { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+.rcenter .pot { margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+.rcontrols { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.rcontrols .step { color: var(--muted); font-size: 13px; margin-left: 6px; }
+.history { margin-top: 24px; }
+.hist-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 12px; padding: 8px 4px; border-bottom: 1px solid rgba(244,238,221,.07); font-size: 14px; cursor: pointer; background: none; border-left: 0; border-right: 0; border-top: 0; color: inherit; width: 100%; text-align: left; }
+.hist-row:hover { background: rgba(244,238,221,.05); }
+.hist-row .when { color: var(--muted); }
+@media (max-width: 640px) {
+  .wrap { padding: 14px 12px 40px; }
+  header.top h1 { font-size: 32px; }
+  .table, .rtable { min-height: 0; aspect-ratio: 1 / 1.05; }
+  .rail, .rtable .rail { inset: 12% 10%; }
+  .seat { width: 80px; }
+  .seat .slot, .chip { width: 50px; height: 50px; }
+  .chip::before { inset: 6px; }
+  .chip span { font-size: 19px; }
+  .seat .label { font-size: 12px; }
+  .center { width: 60%; }
+  .rseat { width: 86px; font-size: 11.5px; }
+  .card { width: 21px; height: 29px; font-size: 12px; }
+  .card i { font-size: 10px; }
+  .card.lg { width: 28px; height: 40px; font-size: 15px; }
+  .hand-list { flex-direction: row; overflow-x: auto; }
+  .hand-list button { flex: 0 0 auto; }
+  .hist-row { grid-template-columns: 1fr; gap: 2px; }
+  table.board th:nth-child(4), table.board td:nth-child(4), table.board th:nth-child(7), table.board td:nth-child(7) { display: none; }
+}
+.stage > *, .replay-grid > * { min-width: 0; }
+footer { margin-top: 30px; color: var(--muted); font-size: 12.5px; max-width: 80ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>pokerlab arena</h1>
+    <p>Deal bots into seats, run a battle under the tournament rules, then replay the biggest hands.</p>
+  </header>
+
+  <div class="stage">
+    <aside class="rack" id="rack" aria-label="Bot rack">
+      <h2>Bot rack</h2>
+      <p class="hint">Drag a bot onto a seat, or press Seat to fill the next empty one.</p>
+      <div class="rack-list" id="rackList"></div>
+      <div class="drop" id="drop">
+        Drop a friend's <b>.py</b> bot here, or <label for="file">choose a file</label>.
+        <input type="file" id="file" accept=".py" multiple>
+        <div class="toast" id="toast" role="status"></div>
+      </div>
+    </aside>
+
+    <section class="table-area" aria-label="Table">
+      <div class="table" id="table">
+        <div class="rail"><div class="felt"></div></div>
+        <div class="center" id="center"></div>
+      </div>
+
+      <div class="tray">
+        <label class="field">Hands
+          <select id="hands">
+            <option value="500">500 (quick look)</option>
+            <option value="2000" selected>2,000</option>
+            <option value="10000">10,000 (event length)</option>
+            <option value="50000">50,000 (settle an argument)</option>
+          </select>
+        </label>
+        <label class="field">Time per decision
+          <select id="limit">
+            <option value="0.001" selected>1 ms (event rule)</option>
+            <option value="0.01">10 ms</option>
+            <option value="1">1 second</option>
+          </select>
+        </label>
+        <label class="field">Bad moves
+          <select id="illegal">
+            <option value="fold" selected>Auto-fold (strict)</option>
+            <option value="clamp">Fix raise sizes (forgiving)</option>
+          </select>
+        </label>
+        <label class="field">Seed
+          <input type="number" id="seed" value="1" min="1" max="999999">
+        </label>
+        <label class="check"><input type="checkbox" id="dup" checked> Balance card luck</label>
+        <div class="spacer"></div>
+        <div class="row-btns">
+          <button class="btn" id="fill">Fill empty seats</button>
+          <button class="btn" id="shuffle">Shuffle seats</button>
+          <button class="btn" id="clear">Clear table</button>
+          <button class="btn primary" id="go">Run battle</button>
+        </div>
+      </div>
+
+      <div id="runbox" hidden>
+        <div class="status" id="status"></div>
+        <div class="progress"><div id="bar"></div></div>
+        <pre class="detail" id="detail" hidden></pre>
+      </div>
+    </section>
+  </div>
+
+  <div class="panels">
+    <section class="panel" aria-label="Standings">
+      <h2>Standings</h2>
+      <p class="sub" id="boardSub">Run a battle to see who wins.</p>
+      <div id="board"><div class="empty">No results yet.</div></div>
+    </section>
+    <section class="panel" aria-label="Chips over time">
+      <h2>Chips over time</h2>
+      <p class="sub">Net big blinds won, by hand.</p>
+      <div id="chart"><div class="empty">The chart fills in while a battle runs.</div></div>
+    </section>
+  </div>
+
+  <section class="panel replay" aria-label="Hand replay">
+    <h2>Biggest hands</h2>
+    <p class="sub">Step through the largest pots from the last battle, every hole card shown.</p>
+    <div class="replay-grid">
+      <div class="hand-list" id="handList"><div class="empty">Finish a battle to replay its hands.</div></div>
+      <div>
+        <div class="rtable" id="rtable"><div class="rail"><div class="felt"></div></div><div class="rcenter" id="rcenter"></div></div>
+        <div class="rcontrols">
+          <button class="btn" id="rStart" aria-label="First step">First</button>
+          <button class="btn" id="rPrev" aria-label="Previous step">Back</button>
+          <button class="btn" id="rPlay">Play</button>
+          <button class="btn" id="rNext" aria-label="Next step">Next</button>
+          <span class="step" id="rStep"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel history" aria-label="Past battles">
+    <h2>Past battles</h2>
+    <p class="sub">The last 20 battles on this computer. Select one to load its results.</p>
+    <div id="history"><div class="empty">None yet.</div></div>
+  </section>
+
+  <footer>
+    Uploaded bots are saved in <code>bots/external/</code> and run as Python on this computer, so only add files from people you trust.
+    A bot needs a class with <code>act(self, state)</code>; see <code>bots/base.py</code> for the state it receives.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var CHIP_COLORS = ["#d23a3a", "#2f6fd8", "#e3b341", "#8a5bd6", "#e8803a", "#e26fa6", "#ede6d6", "#3fb8c9"];
+  var LIGHT = { "#e3b341": 1, "#ede6d6": 1 };
+  var N_SEATS = 8;
+  var bots = [], botById = {}, seats = new Array(N_SEATS).fill(null), defaultField = [];
+  var colorOfPid = {}, polling = null, running = false, lastResult = null;
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function fmt(n, d) { return Number(n).toLocaleString(undefined, { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
+  function signed(n, d) { return (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n), d); }
+  function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+  function api(path, body) {
+    var opt = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    return fetch(path, opt).then(function (r) { return r.json().then(function (j) { j._status = r.status; return j; }); });
+  }
+
+  function chip(color, letter, small) {
+    var c = el("div", "chip" + (small ? " sm" : "") + (LIGHT[color] ? " light" : ""));
+    c.style.setProperty("--c", color);
+    if (!small) c.appendChild(el("span", null, letter));
+    return c;
+  }
+  function initial(name) { var m = String(name).match(/[A-Za-z0-9]/); return m ? m[0].toUpperCase() : "?"; }
+
+  /* ---------------- rack ---------------- */
+  function loadBots() {
+    return api("/api/bots").then(function (j) {
+      bots = j.bots; defaultField = j.default_field; botById = {};
+      bots.forEach(function (b) { botById[b.id] = b; });
+      seats = seats.map(function (s) { return s && botById[s] ? s : null; });
+      renderRack(); renderSeats();
+    });
+  }
+  function renderRack() {
+    var list = $("rackList"); list.textContent = "";
+    var groups = [["uploaded", "Yours and your friends'"], ["built-in", "Built-in"]];
+    groups.forEach(function (g) {
+      var items = bots.filter(function (b) { return b.kind === g[0]; });
+      if (!items.length) return;
+      list.appendChild(el("div", "group-label", g[1]));
+      items.forEach(function (b) {
+        var card = el("div", "bot " + b.kind + (b.ok ? "" : " broken"));
+        card.draggable = b.ok;
+        card.appendChild(el("div", "idx", initial(b.name)));
+        var mid = el("div");
+        mid.appendChild(el("div", "nm", b.name));
+        var ds = el("div", "ds" + (b.ok ? "" : " err"), b.ok ? (b.desc || "No description") : b.problem);
+        ds.title = ds.textContent;
+        mid.appendChild(ds);
+        card.appendChild(mid);
+        var acts = el("div", "acts");
+        if (b.ok) {
+          var add = el("button", "mini", "Seat"); add.type = "button";
+          add.setAttribute("aria-label", "Seat " + b.name);
+          add.onclick = function () { seatNext(b.id); };
+          acts.appendChild(add);
+        }
+        if (b.kind === "uploaded") {
+          var del = el("button", "mini", "Remove"); del.type = "button";
+          del.setAttribute("aria-label", "Remove " + b.name);
+          del.onclick = function () {
+            if (!confirm("Remove " + b.name + ".py from bots/external?")) return;
+            api("/api/delete", { id: b.id }).then(loadBots);
+          };
+          acts.appendChild(del);
+        }
+        card.appendChild(acts);
+        card.addEventListener("dragstart", function (e) { e.dataTransfer.setData("text/bot", b.id); e.dataTransfer.effectAllowed = "copy"; });
+        list.appendChild(card);
+      });
+    });
+  }
+
+  /* ---------------- seats ---------------- */
+  function seatPos(i, n) {
+    var a = Math.PI / 2 + (2 * Math.PI * i) / n;      // seat 1 at the bottom, clockwise
+    return { x: 50 + 41 * Math.cos(a), y: 50 + 43 * Math.sin(a) };
+  }
+  function renderSeats() {
+    var t = $("table");
+    Array.prototype.slice.call(t.querySelectorAll(".seat")).forEach(function (s) { s.remove(); });
+    seats.forEach(function (id, i) {
+      var p = seatPos(i, N_SEATS);
+      var s = el("div", "seat");
+      s.style.left = p.x + "%"; s.style.top = p.y + "%";
+      if (id) {
+        var b = botById[id];
+        var c = chip(CHIP_COLORS[i], initial(b.name));
+        c.draggable = true;
+        c.title = "Drag to another seat to swap";
+        c.addEventListener("dragstart", function (e) { e.dataTransfer.setData("text/seat", String(i)); });
+        if (justDropped === i) c.classList.add("dropped");
+        s.appendChild(c);
+        var lab = el("div", "label", b.name);
+        var x = el("button", "x", "×"); x.type = "button"; x.setAttribute("aria-label", "Empty seat " + (i + 1));
+        x.onclick = function () { seats[i] = null; saveSeats(); renderSeats(); };
+        lab.appendChild(x);
+        s.appendChild(lab);
+      } else {
+        var slot = el("div", "slot", "Seat " + (i + 1));
+        s.appendChild(slot);
+        s.appendChild(el("div", "label", " "));
+      }
+      s.addEventListener("dragover", function (e) { e.preventDefault(); s.classList.add("over"); });
+      s.addEventListener("dragleave", function () { s.classList.remove("over"); });
+      s.addEventListener("drop", function (e) {
+        e.preventDefault(); s.classList.remove("over");
+        var bid = e.dataTransfer.getData("text/bot"), from = e.dataTransfer.getData("text/seat");
+        if (bid) { seats[i] = bid; justDropped = i; }
+        else if (from !== "") { var f = +from, tmp = seats[i]; seats[i] = seats[f]; seats[f] = tmp; justDropped = i; }
+        saveSeats(); renderSeats(); justDropped = -1;
+      });
+      t.appendChild(s);
+    });
+    var filled = seats.filter(Boolean).length;
+    var center = $("center"); center.textContent = "";
+    center.appendChild(el("div", "big", filled < 2 ? "Deal in at least two bots" : filled + " bots seated"));
+    center.appendChild(el("div", "small", filled < 2 ? "Drag them from the rack onto the seats." : "Blinds 50/100, 10,000 chips, stacks reset every hand."));
+    if (!running) $("go").disabled = filled < 2;
+  }
+  var justDropped = -1;
+  function saveSeats() { store("arena.seats", seats); }
+  function seatNext(id) {
+    var i = seats.indexOf(null);
+    if (i < 0) { toast("All 8 seats are full. Empty one first.", true); return; }
+    seats[i] = id; justDropped = i; saveSeats(); renderSeats(); justDropped = -1;
+  }
+  $("fill").onclick = function () {
+    var pool = defaultField.filter(function (id) { return botById[id] && seats.indexOf(id) < 0; });
+    for (var i = 0; i < N_SEATS; i++) if (!seats[i] && pool.length) seats[i] = pool.shift();
+    saveSeats(); renderSeats();
+  };
+  $("clear").onclick = function () { seats = new Array(N_SEATS).fill(null); saveSeats(); renderSeats(); };
+  $("shuffle").onclick = function () {
+    var taken = seats.filter(Boolean);
+    for (var i = taken.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = taken[i]; taken[i] = taken[j]; taken[j] = t; }
+    seats = new Array(N_SEATS).fill(null);
+    taken.forEach(function (id, k) { seats[k] = id; });
+    saveSeats(); renderSeats();
+  };
+
+  /* ---------------- uploads ---------------- */
+  function toast(msg, err) { var t = $("toast"); t.textContent = msg; t.className = "toast" + (err ? " err" : ""); }
+  function uploadFiles(files) {
+    var list = Array.prototype.filter.call(files, function (f) { return /\.py$/i.test(f.name); });
+    if (!list.length) { toast("Only .py files can be added.", true); return; }
+    var done = 0, notes = [];
+    list.forEach(function (f) {
+      var r = new FileReader();
+      r.onload = function () {
+        api("/api/upload", { filename: f.name, content: r.result }).then(function (j) {
+          if (j.error) notes.push(f.name + ": " + j.error);
+          else if (!j.ok) notes.push(f.name + " was saved but won't run yet: " + j.problem);
+          else notes.push(f.name + (j.replaced ? " updated." : " added."));
+          if (++done === list.length) { toast(notes.join(" "), notes.some(function (n) { return /:/.test(n); })); loadBots(); }
+        });
+      };
+      r.readAsText(f);
+    });
+  }
+  var drop = $("drop");
+  ["dragover", "dragenter"].forEach(function (ev) { drop.addEventListener(ev, function (e) { if (e.dataTransfer.types.indexOf("Files") >= 0) { e.preventDefault(); drop.classList.add("over"); } }); });
+  drop.addEventListener("dragleave", function () { drop.classList.remove("over"); });
+  drop.addEventListener("drop", function (e) { e.preventDefault(); drop.classList.remove("over"); uploadFiles(e.dataTransfer.files); });
+  document.addEventListener("dragover", function (e) { if (e.dataTransfer.types.indexOf("Files") >= 0) e.preventDefault(); });
+  document.addEventListener("drop", function (e) { if (e.dataTransfer.files && e.dataTransfer.files.length && !drop.contains(e.target)) { e.preventDefault(); uploadFiles(e.dataTransfer.files); } });
+  $("file").onchange = function () { uploadFiles(this.files); this.value = ""; };
+
+  /* ---------------- battles ---------------- */
+  $("go").onclick = function () {
+    var cfg = { seats: seats.filter(Boolean), hands: +$("hands").value, time_limit: +$("limit").value,
+                illegal: $("illegal").value, seed: +$("seed").value || 1, duplicate: $("dup").checked };
+    store("arena.settings", { hands: cfg.hands, limit: $("limit").value, illegal: cfg.illegal, seed: cfg.seed, dup: cfg.duplicate });
+    api("/api/battle", cfg).then(function (j) {
+      if (!j.ok) { showStatus(j.error, true); return; }
+      startPolling();
+    });
+  };
+  function setRunning(on) {
+    running = on;
+    $("go").textContent = on ? "Stop" : "Run battle";
+    $("go").onclick = on ? function () { api("/api/stop", {}); } : goHandler;
+    $("go").disabled = !on && seats.filter(Boolean).length < 2;
+  }
+  var goHandler = $("go").onclick;
+  function showStatus(msg, err, detail) {
+    $("runbox").hidden = false;
+    var s = $("status"); s.className = "status" + (err ? " err" : ""); s.textContent = "";
+    s.appendChild(el("span", null, msg));
+    var d = $("detail"); d.hidden = !detail; d.textContent = detail || "";
+  }
+  function startPolling() {
+    setRunning(true);
+    clearInterval(polling);
+    polling = setInterval(poll, 500);
+    poll();
+  }
+  function poll() {
+    api("/api/battle").then(function (st) {
+      if (st.status === "running") {
+        var pct = st.hands ? (100 * st.done / st.hands) : 0;
+        $("bar").style.width = pct + "%";
+        showStatus("Playing hand " + fmt(st.done) + " of " + fmt(st.hands) + (st.elapsed ? " (" + st.elapsed.toFixed(0) + " s)" : ""));
+        if (st.standings && st.standings.length) render(st, false);
+        return;
+      }
+      clearInterval(polling); setRunning(false);
+      if (st.status === "done") {
+        $("bar").style.width = "100%";
+        showStatus("Finished " + fmt(st.done) + " hands in " + st.elapsed.toFixed(1) + " s.");
+        render(st, true); loadHistory();
+      } else if (st.status === "error") {
+        showStatus(st.message, true, st.detail);
+      } else if (st.status === "stopped") {
+        showStatus("Battle stopped. The standings show the hands played so far.");
+      }
+    });
+  }
+
+  /* ---------------- results ---------------- */
+  function assignColors(cfg, standings) {
+    colorOfPid = {};
+    var seen = {};
+    (cfg && cfg.seats || []).forEach(function (id, i) {
+      var b = botById[id], base = b ? b.name : String(id).replace(/^.*\//, "").replace(/\.py$/, "");
+      seen[base] = (seen[base] || 0) + 1;
+      var pid = seen[base] === 1 ? base : base + "#" + seen[base];
+      colorOfPid[pid] = CHIP_COLORS[i % CHIP_COLORS.length];
+    });
+    (standings || []).forEach(function (r, i) { if (!colorOfPid[r.pid]) colorOfPid[r.pid] = CHIP_COLORS[i % CHIP_COLORS.length]; });
+  }
+  function render(st, final) {
+    lastResult = st;
+    assignColors(st.config, st.standings);
+    renderBoard(st);
+    renderChart(st.series || [], st.standings);
+    if (final) renderHands(st.featured || []);
+  }
+  function renderBoard(st) {
+    var cfg = st.config || {};
+    $("boardSub").textContent = fmt(st.done) + " hands, " + (cfg.duplicate ? "card luck balanced" : "random deals") +
+      ", " + (cfg.time_limit < 0.0011 ? "1 ms" : cfg.time_limit < 0.011 ? "10 ms" : "1 s") + " per decision, seed " + cfg.seed + ".";
+    var t = el("table", "board");
+    var head = el("tr");
+    ["", "Bot", "bb/100", "±95%", "Net bb", "Auto-folds", "Slowest"].forEach(function (h) { head.appendChild(el("th", null, h)); });
+    t.appendChild(head);
+    st.standings.forEach(function (r, i) {
+      var tr = el("tr");
+      tr.appendChild(el("td", "rank", String(i + 1)));
+      var who = el("td", "who"), d = el("div");
+      d.appendChild(chip(colorOfPid[r.pid] || "#888", "", true));
+      d.appendChild(el("span", null, r.pid));
+      who.appendChild(d); tr.appendChild(who);
+      tr.appendChild(el("td", r.bb100 >= 0 ? "pos" : "neg", signed(r.bb100, 1)));
+      tr.appendChild(el("td", "ci", fmt(r.ci, 1)));
+      tr.appendChild(el("td", null, signed(r.net_bb, 0)));
+      var folds = r.illegal + r.crash + r.timeout;
+      var f = el("td", folds ? "warn" : "ci", folds ? fmt(folds) : "0");
+      if (folds) f.title = "illegal " + r.illegal + ", crashed " + r.crash + ", too slow " + r.timeout + (r.examples.length ? "\n" + r.examples.join("\n") : "");
+      tr.appendChild(f);
+      tr.appendChild(el("td", r.slowest_ms > ((cfg.time_limit || 1) * 1000) ? "warn" : "ci", r.slowest_ms < 1 ? r.slowest_ms.toFixed(2) + " ms" : fmt(r.slowest_ms, 1) + " ms"));
+      t.appendChild(tr);
+    });
+    var box = $("board"); box.textContent = ""; box.appendChild(t);
+    var n = st.standings.length;
+    if (n > 1) {
+      var gap = st.standings[0].bb100 - st.standings[1].bb100, ci = Math.max(st.standings[0].ci, st.standings[1].ci);
+      box.appendChild(el("p", "sub", gap > ci ? st.standings[0].pid + " leads by more than the margin of error."
+        : "The top two are within the margin of error. Run more hands to separate them."));
+    }
+  }
+  function renderChart(series, standings) {
+    var box = $("chart");
+    if (series.length < 2) { box.textContent = ""; box.appendChild(el("div", "empty", "The chart fills in while a battle runs.")); return; }
+    var W = 640, H = 300, L = 54, R = 12, T = 12, B = 28;
+    var pids = standings.map(function (r) { return r.pid; });
+    var xmax = series[series.length - 1].hand || 1, ymin = 0, ymax = 0;
+    series.forEach(function (p) { pids.forEach(function (id) { var v = p.bb[id] || 0; if (v < ymin) ymin = v; if (v > ymax) ymax = v; }); });
+    var pad = (ymax - ymin) * 0.06 || 10; ymin -= pad; ymax += pad;
+    function X(h) { return L + (W - L - R) * h / xmax; }
+    function Y(v) { return T + (H - T - B) * (ymax - v) / (ymax - ymin); }
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("class", "chart");
+    svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "Net big blinds by hand for each bot");
+    function add(tag, attrs, text) { var e = document.createElementNS(ns, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; }
+    var step = niceStep((ymax - ymin) / 5);
+    for (var v = Math.ceil(ymin / step) * step; v <= ymax; v += step) {
+      add("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: v === 0 ? "rgba(244,238,221,.45)" : "rgba(244,238,221,.08)", "stroke-width": 1 });
+      add("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }, signed(v, 0));
+    }
+    add("text", { x: L, y: H - 8 }, "0");
+    add("text", { x: W - R, y: H - 8, "text-anchor": "end" }, fmt(xmax) + " hands");
+    pids.slice().reverse().forEach(function (id) {
+      var d = series.map(function (p, i) { return (i ? "L" : "M") + X(p.hand).toFixed(1) + " " + Y(p.bb[id] || 0).toFixed(1); }).join(" ");
+      add("path", { d: d, fill: "none", stroke: colorOfPid[id] || "#888", "stroke-width": 2, "stroke-linejoin": "round" });
+    });
+    box.textContent = ""; box.appendChild(svg);
+    var lg = el("div", "legend");
+    pids.forEach(function (id) { var s = el("span"); var i = el("i"); i.style.background = colorOfPid[id] || "#888"; s.appendChild(i); s.appendChild(document.createTextNode(id)); lg.appendChild(s); });
+    box.appendChild(lg);
+  }
+  function niceStep(raw) {
+    var p = Math.pow(10, Math.floor(Math.log10(raw || 1))), m = raw / p;
+    return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+  }
+
+  /* ---------------- replay ---------------- */
+  var frames = [], frameIdx = 0, playTimer = null, currentHand = null;
+  function renderHands(hands) {
+    var list = $("handList"); list.textContent = "";
+    if (!hands.length) { list.appendChild(el("div", "empty", "No hands recorded.")); return; }
+    hands.forEach(function (h, i) {
+      var b = el("button");
+      b.type = "button";
+      var winner = Object.keys(h.net).sort(function (a, c) { return h.net[c] - h.net[a]; })[0];
+      b.appendChild(document.createTextNode("Pot " + fmt(h.pot)));
+      b.appendChild(el("small", null, winner + " wins " + signed(h.net[winner] / 100, 0) + " bb"));
+      b.onclick = function () { pickHand(i, hands); };
+      list.appendChild(b);
+    });
+    pickHand(0, hands);
+  }
+  function pickHand(i, hands) {
+    Array.prototype.forEach.call($("handList").children, function (b, k) { b.classList.toggle("on", k === i); });
+    currentHand = hands[i]; frames = buildFrames(currentHand); frameIdx = 0; stopPlay(); drawFrame();
+  }
+  function buildFrames(h) {
+    var seatsR = h.seats.map(function (s) { return { pid: s.pid, name: s.name, position: s.position, hole: s.hole, stack: 10000, bet: 0, folded: false, act: "", hot: false, won: null }; });
+    var byName = {}; seatsR.forEach(function (s, i) { byName[s.name] = i; });
+    var out = [], board = [], pot = 0;
+    function snap(caption) { out.push({ seats: JSON.parse(JSON.stringify(seatsR)), board: board.slice(), pot: pot + seatsR.reduce(function (a, s) { return a + s.bet; }, 0), caption: caption }); seatsR.forEach(function (s) { s.hot = false; }); }
+    snap("Cards dealt");
+    h.history.forEach(function (ev) {
+      if (ev.type === "action") {
+        var s = seatsR[byName[ev.player]]; if (!s) return;
+        var add = ev.added || 0;
+        s.stack -= add; s.bet += add; s.hot = true;
+        if (ev.action === "fold") { s.folded = true; s.act = "Fold"; }
+        else if (ev.action === "check") s.act = "Check";
+        else if (ev.action === "blind") s.act = "Blind " + fmt(ev.amount);
+        else if (ev.action === "call") s.act = ev.allin ? "Call all-in" : "Call " + fmt(ev.amount);
+        else if (ev.action === "raise") s.act = ev.allin ? "All-in " + fmt(ev.amount) : (ev.current_bet > 0 ? "Raise to " : "Bet ") + fmt(ev.amount);
+        snap(s.pid + ": " + s.act.toLowerCase());
+      } else if (ev.type === "street") {
+        seatsR.forEach(function (s) { pot += s.bet; s.bet = 0; if (!s.folded) s.act = ""; });
+        board = ev.board.slice();
+        snap(ev.street.charAt(0).toUpperCase() + ev.street.slice(1));
+      } else if (ev.type === "showdown") {
+        seatsR.forEach(function (s) { pot += s.bet; s.bet = 0; });
+        board = ev.board.slice();
+        seatsR.forEach(function (s) { if (!s.folded && ev.hand_types) s.act = ev.hand_types[s.name] || ""; });
+        snap("Showdown");
+      }
+    });
+    seatsR.forEach(function (s) { pot += s.bet; s.bet = 0; s.won = h.net[s.pid]; s.stack = 10000 + h.net[s.pid]; });
+    snap("Result");
+    return out;
+  }
+  function cardEl(c, lg) {
+    var red = c[1] === "h" || c[1] === "d";
+    var e = el("div", "card" + (red ? " r" : "") + (lg ? " lg" : ""));
+    e.appendChild(document.createTextNode(c[0] === "T" ? "10" : c[0]));
+    e.appendChild(el("i", null, { s: "♠", h: "♥", d: "♦", c: "♣" }[c[1]]));
+    e.setAttribute("aria-label", c);
+    return e;
+  }
+  function drawFrame() {
+    var box = $("rtable");
+    Array.prototype.slice.call(box.querySelectorAll(".rseat")).forEach(function (s) { s.remove(); });
+    var center = $("rcenter"); center.textContent = "";
+    if (!frames.length) return;
+    var f = frames[frameIdx], n = f.seats.length;
+    f.seats.forEach(function (s, i) {
+      var p = seatPos(i, n);
+      var d = el("div", "rseat" + (s.folded ? " folded" : ""));
+      d.style.left = p.x + "%"; d.style.top = p.y + "%";
+      var nm = el("div", "nm"); nm.appendChild(chip(colorOfPid[s.pid] || "#888", "", true)); nm.appendChild(el("span", null, s.pid));
+      d.appendChild(nm);
+      var cs = el("div", "cards"); s.hole.forEach(function (c) { cs.appendChild(cardEl(c)); }); d.appendChild(cs);
+      d.appendChild(el("div", "stk", s.position + ", " + fmt(s.stack) + (s.bet ? ", bet " + fmt(s.bet) : "")));
+      if (s.won !== null && s.won !== undefined) d.appendChild(el("div", "won " + (s.won > 0 ? "pos" : s.won < 0 ? "neg" : ""), signed(s.won / 100, 1) + " bb"));
+      else if (s.act) d.appendChild(el("div", "act" + (s.hot ? " hot" : ""), s.act));
+      box.appendChild(d);
+    });
+    var bc = el("div", "cards");
+    for (var k = 0; k < 5; k++) bc.appendChild(f.board[k] ? cardEl(f.board[k], true) : el("div", "card lg ph"));
+    center.appendChild(bc);
+    center.appendChild(el("div", "pot", "Pot " + fmt(f.pot)));
+    $("rStep").textContent = "Step " + (frameIdx + 1) + " of " + frames.length + ": " + f.caption;
+  }
+  function stopPlay() { clearInterval(playTimer); playTimer = null; $("rPlay").textContent = "Play"; }
+  $("rNext").onclick = function () { stopPlay(); if (frameIdx < frames.length - 1) { frameIdx++; drawFrame(); } };
+  $("rPrev").onclick = function () { stopPlay(); if (frameIdx > 0) { frameIdx--; drawFrame(); } };
+  $("rStart").onclick = function () { stopPlay(); frameIdx = 0; drawFrame(); };
+  $("rPlay").onclick = function () {
+    if (playTimer) { stopPlay(); return; }
+    if (frameIdx >= frames.length - 1) frameIdx = 0;
+    $("rPlay").textContent = "Pause";
+    playTimer = setInterval(function () { if (frameIdx >= frames.length - 1) { stopPlay(); return; } frameIdx++; drawFrame(); }, 700);
+  };
+
+  /* ---------------- history ---------------- */
+  function loadHistory() {
+    api("/api/history").then(function (list) {
+      var box = $("history"); box.textContent = "";
+      if (!list.length) { box.appendChild(el("div", "empty", "None yet.")); return; }
+      list.forEach(function (h) {
+        var b = el("button", "hist-row"); b.type = "button";
+        b.appendChild(el("span", "when", new Date(h.finished * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })));
+        b.appendChild(el("span", null, h.winner + " won, " + h.config.seats.length + " bots, " + fmt(h.config.hands) + " hands"));
+        b.appendChild(el("span", "ci", "seed " + h.config.seed));
+        b.onclick = function () {
+          api("/api/history/" + h.id).then(function (full) {
+            var st = { config: full.config, standings: full.standings, series: full.series, featured: full.featured, done: full.config.hands };
+            render(st, true);
+            seats = new Array(N_SEATS).fill(null);
+            full.config.seats.forEach(function (id, i) { if (botById[id]) seats[i] = id; });
+            saveSeats(); renderSeats();
+            window.scrollTo({ top: $("board").getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" });
+          });
+        };
+        box.appendChild(b);
+      });
+    });
+  }
+
+  /* ---------------- start ---------------- */
+  var saved = load("arena.seats");
+  if (Array.isArray(saved) && saved.length === N_SEATS) seats = saved;
+  var st = load("arena.settings");
+  if (st) { $("hands").value = String(st.hands); $("limit").value = st.limit; $("illegal").value = st.illegal; $("seed").value = st.seed; $("dup").checked = st.dup; }
+  loadBots().then(function () {
+    if (!seats.some(Boolean)) $("fill").onclick();
+    loadHistory();
+    api("/api/battle").then(function (s) { if (s.status === "running") startPolling(); else if (s.status === "done") render(s, true); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+arena/history.json
+arena/last_battle.log
+*.jsonl
